@@ -1,0 +1,104 @@
+/* ================================================================
+   Apple PWA Design System v2.0 — Tokens & Base
+   Quote Analysis System
+================================================================ */
+
+:root {
+  /* Brand */
+  --blue:   #007AFF;
+  --green:  #34C759;
+  --red:    #FF3B30;
+  --orange: #FF9500;
+
+  /* Neutrals */
+  --gray-1: #8E8E93;
+  --gray-2: #AEAEB2;
+  --gray-3: #C7C7CC;
+  --gray-4: #D1D1D6;
+  --gray-5: #E5E5EA;
+  --gray-6: #F2F2F7;
+
+  /* Semantic */
+  --color-primary:  var(--blue);
+  --color-success:  var(--green);
+  --color-danger:   var(--red);
+  --color-warning:  var(--orange);
+
+  /* Text */
+  --text-primary:    #1D1D1F;
+  --text-secondary:  #3C3C43;
+  --text-tertiary:   #8E8E93;
+  --text-quaternary: #AEAEB2;
+
+  /* Backgrounds */
+  --bg-app:        #F2F2F7;
+  --bg-card:       rgba(255, 255, 255, 0.78);
+  --bg-card-solid: #FFFFFF;
+  --bg-separator:  rgba(60, 60, 67, 0.12);
+
+  /* Spacing — strict 8px grid */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 16px;
+  --s-4: 24px;
+  --s-5: 32px;
+  --s-6: 48px;
+
+  /* Radius */
+  --r-sm:   8px;
+  --r-md:   12px;
+  --r-lg:   16px;
+  --r-xl:   20px;
+  --r-2xl:  24px;
+  --r-full: 9999px;
+
+  /* Shadows */
+  --shadow-card:  0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06);
+  --shadow-hover: 0 2px 6px rgba(0,0,0,0.06), 0 12px 30px rgba(0,0,0,0.08);
+  --shadow-modal: 0 20px 60px rgba(0,0,0,0.18);
+  --shadow-toast: 0 8px 20px rgba(0,0,0,0.10);
+
+  /* Transitions */
+  --t-fast: 120ms ease-out;
+  --t-base: 180ms ease-out;
+  --t-slow: 300ms ease-out;
+
+  /* Typography */
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", sans-serif;
+  --fs-kpi:      40px;
+  --fs-kpi-sm:   28px;
+  --fs-title:    24px;
+  --fs-subtitle: 18px;
+  --fs-body:     14px;
+  --fs-small:    13px;
+  --fs-label:    11px;
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+
+  /* Blur */
+  --blur-card: blur(20px);
+  --blur-nav:  blur(24px);
+}
+
+/* ---- Reset ---- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { height: 100%; font-size: 14px; }
+
+body {
+  height: 100%;
+  font-family: var(--font);
+  font-size: var(--fs-body);
+  color: var(--text-primary);
+  background: var(--bg-app);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+button  { font-family: inherit; cursor: pointer; border: none; background: none; outline: none; -webkit-tap-highlight-color: transparent; }
+input, select, textarea { font-family: inherit; font-size: inherit; outline: none; border: none; background: none; }
+a       { color: var(--color-primary); text-decoration: none; }
+ul, ol  { list-style: none; }
+img     { display: block; max-width: 100%; }

@@ -1,0 +1,252 @@
+/* ================================================================
+   Layout — App Shell, Screens, Views, Grid
+================================================================ */
+
+/* ---- App Root ---- */
+#app {
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ---- Screens ---- */
+.screen {
+  position: absolute;
+  inset: 0;
+  display: none;
+  opacity: 0;
+  transition: opacity var(--t-slow);
+}
+.screen.active {
+  display: flex;
+  flex-direction: column;
+  opacity: 1;
+}
+
+/* ---- Login Screen ---- */
+#screen-login {
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-app);
+}
+
+.login-container {
+  width: 100%;
+  max-width: 400px;
+  padding: var(--s-4);
+}
+
+/* ---- Main App Shell ---- */
+#screen-app {
+  flex-direction: column;
+}
+
+/* ---- App Header ---- */
+.app-header {
+  flex-shrink: 0;
+  height: 56px;
+  background: rgba(242, 242, 247, 0.90);
+  backdrop-filter: var(--blur-nav);
+  -webkit-backdrop-filter: var(--blur-nav);
+  border-bottom: 1px solid var(--bg-separator);
+  z-index: 100;
+}
+
+.header-content {
+  height: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 var(--s-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header-left { display: flex; align-items: center; gap: var(--s-3); }
+.header-right { display: flex; align-items: center; gap: var(--s-2); }
+
+.header-title {
+  font-size: var(--fs-subtitle);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+
+/* ---- View Container ---- */
+#view-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;          /* container is locked; each view owns its scroll */
+  overflow-x: hidden;
+  padding: var(--s-4);
+  padding-bottom: calc(var(--s-6) + 20px); /* room for bottom nav */
+}
+
+/* ---- Views ---- */
+.view {
+  display: none;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  animation: fadeUp var(--t-slow) ease-out;
+}
+.view.active {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;          /* non-upload views scroll their own content */
+}
+
+.view-header { margin-bottom: var(--s-4); }
+.view-title   { font-size: var(--fs-title); font-weight: var(--fw-bold); color: var(--text-primary); }
+.view-subtitle { font-size: var(--fs-small); color: var(--text-tertiary); margin-top: var(--s-1); }
+
+/* ---- Upload Layout — file area on top, extract panel below ---- */
+.upload-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+/* Drop zone + file queue side by side */
+.file-area-row {
+  display: flex;
+  gap: var(--s-4);
+  align-items: stretch;
+}
+
+/* Drop zone: compact fixed width; file queue: fills remaining space */
+.file-area-row > .drop-zone {
+  width: 240px;
+  flex-shrink: 0;
+}
+
+.file-area-row > .file-queue {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Extract panel: full width below file area */
+.extract-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+/* Info card + side column (产线&设备 + actions) side by side */
+.extract-form-columns {
+  display: flex;
+  gap: var(--s-4);
+  align-items: flex-start;
+}
+
+.extract-main-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.extract-side-col {
+  width: 300px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+/* ---- KPI Grid ---- */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--s-4);
+  margin-bottom: var(--s-4);
+}
+
+@media (max-width: 1024px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 600px) {
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* ---- Filter Bar ---- */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  margin-bottom: var(--s-4);
+  padding: var(--s-3) var(--s-4);
+}
+
+.filter-group   { display: flex; align-items: center; gap: var(--s-2); flex-wrap: wrap; }
+.filter-actions { flex-shrink: 0; }
+
+/* ---- Compare / Cost Summary ---- */
+.compare-summary,
+.cost-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s-4);
+  margin-bottom: var(--s-4);
+}
+
+.compare-selectors {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s-3);
+  margin-bottom: var(--s-3);
+}
+
+.compare-select-group { flex: 1; }
+.compare-arrow { flex-shrink: 0; padding-bottom: 10px; }
+
+/* ---- Settings Sections ---- */
+.settings-section { margin-bottom: var(--s-4); }
+
+/* ---- Bottom Navigation ---- */
+.bottom-nav {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 70px;
+  background: rgba(242, 242, 247, 0.92);
+  backdrop-filter: var(--blur-nav);
+  -webkit-backdrop-filter: var(--blur-nav);
+  border-top: 1px solid var(--bg-separator);
+  display: flex;
+  align-items: stretch;
+  z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ---- Modal Overlay ---- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  padding: var(--s-4);
+  animation: fadeIn var(--t-base) ease-out;
+}
+
+/* ---- Toast Container ---- */
+#toast-container {
+  position: fixed;
+  top: 70px;
+  right: var(--s-4);
+  z-index: 600;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  pointer-events: none;
+}

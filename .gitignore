@@ -1,0 +1,18 @@
+# Dependencies (run `npm install` at root on fresh deploy)
+node_modules/
+server/node_modules/
+
+# SQLite database (runtime data — do not commit)
+server/qas.db
+server/qas.db-shm
+server/qas.db-wal
+
+# Uploaded files (runtime data)
+server/uploads/
+
+# Claude Code tool config
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
