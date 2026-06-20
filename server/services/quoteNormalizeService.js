@@ -381,7 +381,7 @@ async function normalizeFromFileId(fileId) {
   try {
     const userMsg = `fileid://${fileId}\n\n请从上述报价单 PDF 中提取字段和明细行，严格按照系统提示中的 JSON 格式输出。`;
     // qwen-long 支持原生 PDF 解析；60s 超时（文件解析比纯文本慢）
-    const reply = await chat(SYSTEM_PROMPT, userMsg, 'qwen-long', 60_000);
+    const reply = await chat(SYSTEM_PROMPT, userMsg, 'qwen-long-latest', 60_000);
     return _processReply(reply, 'file');
   } catch (err) {
     console.error('[quoteNormalize/file] 失败:', err.message);
