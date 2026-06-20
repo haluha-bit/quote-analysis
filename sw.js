@@ -1,4 +1,4 @@
-const CACHE = 'qas-v2.3.0';
+const CACHE = 'qas-v2.4.0';
 
 const STATIC = [
   './',

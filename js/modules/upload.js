@@ -1,32 +1,30 @@
 /* ================================================================
-   upload.js — Complete Upload → Parse → Confirm → Store Pipeline
+   upload.js — Upload → Server AI Parse → Review → Confirm → Store
 
    Flow:
-     1. User drops / selects files  →  addFiles()
+     1. User drops / selects files  → addFiles()
      2. File queued, status = pending
-     3. _selectFile(idx)            →  _parseFile()  [calls extractor]
-     4. parseFile() returns Quote   →  fill form, status = ready
-     5. User edits fields           →  form is source-of-truth
-     6. "确认导入" clicked          →  _handleConfirm()
-         → validate form
-         → merge form + tags + file_name + extractor items
-         → fileService.upload()   [stores file on server]
-         → quoteService.create()  [writes DB + logs internally]
+     3. _selectFile(idx)            → _parseFile()
+     4. _parseFile() → fileService.upload() → server AI normalize
+        → entry.fileId + entry.normalized stored
+        → _fillForm(normalized): fill header fields + editable items table
+     5. User reviews & edits all fields and items
+     6. "确认入库" clicked          → _handleConfirm()
+         → _readForm() + _editItems (no re-upload)
+         → quoteService.create()   [DB write]
          → status = done
-         → refreshOverview + refreshAnalysisSelects
 ================================================================ */
 
-import { parseFile }                    from './extractor.js';
-import { quoteService }                 from '../services/quoteService.js';
-import { fileService }                  from '../services/fileService.js';
-import { supplierService }              from '../services/supplierService.js';
-import { templateService }              from '../services/templateService.js';
-import { getSession }                   from './auth.js';
-import { getSelectedTags, resetTags }   from './classifier.js';
-import { refreshOverview }              from './overview.js';
-import { refreshAnalysisSelects }       from './analysis.js';
-import { formatSize, fileIcon }         from '../ui/components.js';
-import { showToast }                    from '../ui/notifications.js';
+import { quoteService }                from '../services/quoteService.js';
+import { fileService }                 from '../services/fileService.js';
+import { supplierService }             from '../services/supplierService.js';
+import { templateService }             from '../services/templateService.js';
+import { getSession }                  from './auth.js';
+import { getSelectedTags, resetTags }  from './classifier.js';
+import { refreshOverview }             from './overview.js';
+import { refreshAnalysisSelects }      from './analysis.js';
+import { formatSize, fileIcon }        from '../ui/components.js';
+import { showToast }                   from '../ui/notifications.js';
 
 /* ================================================================
    Constants
@@ -40,26 +38,18 @@ const STATUS_BADGE = {
               <span class="spinner" style="width:12px;height:12px;border-width:1.5px;flex-shrink:0"></span>解析中
             </span>`,
   ready:   `<span class="badge badge-green">待确认</span>`,
-  done:    `<span class="badge badge-green">✓ 已导入</span>`,
+  done:    `<span class="badge badge-green">✓ 已入库</span>`,
   error:   `<span class="badge badge-red">解析失败</span>`,
 };
-
-const FIELD_MAP = [
-  { id: 'field-supplier',   key: 'supplier',      label: '供应商',   confId: 'conf-supplier'   },
-  { id: 'field-quote-id',   key: 'quote_id',      label: '报价单号', confId: 'conf-quote-id'   },
-  { id: 'field-quote-date', key: 'quote_date',    label: '报价日期', confId: 'conf-quote-date' },
-  { id: 'field-amount',     key: 'total_amount',  label: '报价金额', confId: 'conf-amount'     },
-  { id: 'field-delivery',   key: 'delivery_time', label: '交期',     confId: 'conf-delivery'   },
-  { id: 'field-notes',      key: 'notes',         label: '备注'                               },
-];
 
 /* ================================================================
    Module State
 ================================================================ */
 
-let _queue            = [];
-let _activeIdx        = -1;
-let _lastExtracted    = null;  // Quote object from extractor, kept for template learning
+let _queue         = [];
+let _activeIdx     = -1;
+let _lastExtracted = null;  // normalized object, kept for template learning
+let _editItems     = [];    // live-editable copy of items
 
 /* ================================================================
    File Acceptance
@@ -79,25 +69,16 @@ function _isDuplicate(file) {
 ================================================================ */
 
 export function addFiles(fileList) {
-  let added = 0;
-  let rejected = 0;
-
+  let added = 0, rejected = 0;
   for (const file of fileList) {
     if (!_isAccepted(file)) { rejected++; continue; }
     if (_isDuplicate(file))  continue;
-    _queue.push({ file, status: 'pending', quote: null, errorMsg: '' });
+    _queue.push({ file, status: 'pending', fileId: null, normalized: null, errorMsg: '' });
     added++;
   }
-
-  if (rejected > 0) {
-    showToast(`${rejected} 个文件不支持（仅接受 PDF / Excel / Word）`, 'error');
-  }
-
+  if (rejected > 0) showToast(`${rejected} 个文件不支持（仅接受 PDF / Excel / Word）`, 'error');
   _renderQueue();
-
-  if (_activeIdx === -1 && added > 0) {
-    _selectFile(_queue.length - added);
-  }
+  if (_activeIdx === -1 && added > 0) _selectFile(_queue.length - added);
 }
 
 /* ================================================================
@@ -109,15 +90,9 @@ function _renderQueue() {
   const listEl    = document.getElementById('file-list');
   const countEl   = document.getElementById('file-count');
   if (!queueCard || !listEl) return;
-
-  if (_queue.length === 0) {
-    queueCard.style.display = 'none';
-    return;
-  }
-
+  if (_queue.length === 0) { queueCard.style.display = 'none'; return; }
   queueCard.style.display = 'block';
   if (countEl) countEl.textContent = _queue.length;
-
   listEl.innerHTML = '';
   _queue.forEach((entry, idx) => {
     const item = document.createElement('div');
@@ -158,20 +133,16 @@ function _removeFile(idx) {
 }
 
 /* ================================================================
-   File Selection & Auto-Parse
+   File Selection
 ================================================================ */
 
 async function _selectFile(idx) {
   if (idx < 0 || idx >= _queue.length) return;
-
   _activeIdx = idx;
-
   document.querySelectorAll('.file-item').forEach((el, i) => {
     el.classList.toggle('active', i === idx);
   });
-
   const entry = _queue[idx];
-
   switch (entry.status) {
     case 'pending':
       _showPanel();
@@ -179,56 +150,56 @@ async function _selectFile(idx) {
       break;
     case 'parsing':
       _showPanel();
-      _setStatusLabel('提取中...', 'processing');
+      _setStatusLabel('上传并解析中...', 'processing');
       break;
     case 'ready':
       _showPanel();
-      _fillForm(entry.quote);
-      _setStatusLabel('提取完成', 'done');
+      _fillForm(entry.normalized ?? {});
+      _setStatusLabel('解析完成，请确认', 'done');
       break;
     case 'done':
       _showPanel();
-      _fillForm(entry.quote);
-      _setStatusLabel('已导入', 'done');
+      _fillForm(entry.normalized ?? {});
+      _setStatusLabel('已入库', 'done');
       break;
     case 'error':
       _showPanel();
       _setStatusLabel('解析失败 — 可手动填写后导入', 'error');
-      if (entry.quote) _fillForm(entry.quote);
+      _fillForm({});
       break;
   }
 }
 
 /* ================================================================
-   Parsing
+   Parsing — upload to server, receive AI-normalized fields
 ================================================================ */
 
 async function _parseFile(idx) {
-  const entry   = _queue[idx];
-  entry.status  = 'parsing';
+  const entry  = _queue[idx];
+  entry.status = 'parsing';
   _patchBadge(idx);
-  _setStatusLabel('提取中...', 'processing');
+  _setStatusLabel('上传并解析中...', 'processing');
 
-  const result = await parseFile(entry.file);
-
-  if (result.success === false) {
-    entry.status   = 'error';
-    entry.errorMsg = result.error;
+  try {
+    const { file_id, normalized } = await fileService.upload(entry.file);
+    entry.fileId     = file_id;
+    entry.normalized = normalized ?? {};
+    entry.status     = 'ready';
     _patchBadge(idx);
-    _setStatusLabel('解析失败', 'error');
-    showToast(`「${entry.file.name}」解析失败：${result.error}`, 'error');
-    return;
+    _setStatusLabel('解析完成，请确认', 'done');
+    _fillForm(entry.normalized);
+  } catch (err) {
+    entry.status   = 'error';
+    entry.errorMsg = err.message;
+    _patchBadge(idx);
+    _setStatusLabel('解析失败 — 可手动填写后导入', 'error');
+    _fillForm({});
+    showToast(`「${entry.file.name}」上传失败：${err.message}`, 'error');
   }
-
-  entry.quote  = result;
-  entry.status = 'ready';
-  _patchBadge(idx);
-  _setStatusLabel('提取完成', 'done');
-  _fillForm(result);
 }
 
 /* ================================================================
-   Extract Panel UI
+   Panel UI
 ================================================================ */
 
 function _showPanel() {
@@ -243,8 +214,8 @@ function _hidePanel() {
   const form        = document.getElementById('extract-form');
   if (placeholder) placeholder.style.display = 'flex';
   if (form)        form.style.display = 'none';
-  _clearConfBadges();
   _lastExtracted = null;
+  _editItems     = [];
 }
 
 function _setStatusLabel(text, type) {
@@ -254,145 +225,163 @@ function _setStatusLabel(text, type) {
   el.className   = `status-badge ${type}`;
 }
 
-const CURRENCY_SYMBOL = { CNY: '¥', USD: '$', EUR: '€', GBP: '£' };
+/* ================================================================
+   Fill Form from Normalized (AI-extracted)
+================================================================ */
 
-/**
- * Set the confidence badge next to a field label.
- * @param {string} badgeId  element id
- * @param {number} score    0–1
- * @param {string} source   human-readable extraction source
- */
-function _setConfBadge(badgeId, score, source) {
-  const el = document.getElementById(badgeId);
-  if (!el) return;
-  let tier, label;
-  if (score >= 0.80)      { tier = 'high'; label = '高'; }
-  else if (score >= 0.50) { tier = 'mid';  label = '中'; }
-  else if (score > 0)     { tier = 'low';  label = '低'; }
-  else                    { tier = 'none'; label = '人工'; }
-  el.className  = `conf-badge conf-${tier}`;
-  el.textContent = label;
-  el.title = source ? `来源：${source}` : '未提取，请手动填写';
+function _set(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.value = val ?? '';
 }
 
-function _clearConfBadges() {
-  for (const { confId } of FIELD_MAP) {
-    if (!confId) continue;
-    _setConfBadge(confId, 0, '');
-  }
+function _esc(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
-function _fillForm(quote) {
-  if (!quote) return;
-  _lastExtracted = quote;
+function _fillForm(normalized) {
+  _lastExtracted = normalized;
+  _editItems = Array.isArray(normalized.items)
+    ? normalized.items.map(it => ({ ...it }))
+    : [];
 
-  const sym = CURRENCY_SYMBOL[quote.currency] ?? '¥';
-  const fmt = n => `${sym}${n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const conf = quote._confidence ?? {};
+  _set('field-supplier',   normalized.vendorName);
+  _set('field-quote-id',   normalized.quoteNo);
+  _set('field-quote-date', normalized.quoteDate);
+  _set('field-delivery',   normalized.deliveryMethod);
+  _set('field-payment',    normalized.paymentTerms);
+  _set('field-validity',   normalized.validity);
+  _set('field-amount',     '');
+  _set('field-notes',      '');
 
-  for (const { id, key, confId } of FIELD_MAP) {
-    const el = document.getElementById(id);
-    if (!el) continue;
-    const val = quote[key];
-    if (key === 'total_amount') {
-      const n = parseFloat(val);
-      el.value = (n > 0) ? fmt(n) : '';
-    } else {
-      el.value = (val != null && val !== 0) ? String(val) : '';
-    }
-    if (confId && conf[key]) {
-      _setConfBadge(confId, conf[key].score, conf[key].source);
-    } else if (confId) {
-      _setConfBadge(confId, 0, '');
-    }
-  }
-
-  // Items inline section
-  const itemsSection = document.getElementById('items-section');
-  const itemsWrap    = document.getElementById('items-table-wrap');
-  const itemsCnt     = document.getElementById('items-count');
-  const items = quote.items ?? [];
-  if (itemsSection && itemsWrap) {
-    if (items.length > 0) {
-      itemsSection.style.display = '';
-      if (itemsCnt) itemsCnt.textContent = `${items.length} 项`;
-      itemsWrap.innerHTML = `
-        <table class="items-table">
-          <thead><tr><th>名称</th><th>数量</th><th>单价</th><th>金额</th></tr></thead>
-          <tbody>
-            ${items.map(it => `
-              <tr>
-                <td>${it.name || '-'}</td>
-                <td>${it.qty || 1}</td>
-                <td>${it.unit_price ? fmt(it.unit_price) : '-'}</td>
-                <td>${it.total ? fmt(it.total) : '-'}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>`;
-    } else {
-      itemsSection.style.display = 'none';
-    }
-  }
+  _syncItemsSection();
+  _reRenderItemsTable();
 }
 
-/**
- * Load saved template for a supplier and backfill empty low-confidence fields.
- * @param {string} supplierName
- */
+/* ================================================================
+   Editable Items Table
+================================================================ */
+
+function _syncItemsSection() {
+  const section = document.getElementById('items-section');
+  if (section) section.style.display = _editItems.length > 0 ? '' : 'none';
+  const cnt = document.getElementById('items-count');
+  if (cnt) cnt.textContent = `${_editItems.length} 项`;
+}
+
+function _reRenderItemsTable() {
+  const wrap = document.getElementById('items-table-wrap');
+  if (!wrap) return;
+
+  if (_editItems.length === 0) {
+    wrap.innerHTML = '';
+    return;
+  }
+
+  const rows = _editItems.map((it, i) => `
+    <tr data-i="${i}">
+      <td><input class="item-inp item-sm"   data-f="itemNo"      value="${_esc(it.itemNo)}"></td>
+      <td><input class="item-inp"           data-f="model"       value="${_esc(it.model)}"></td>
+      <td><input class="item-inp item-wide" data-f="description" value="${_esc(it.description)}"></td>
+      <td><input class="item-inp item-num"  data-f="qty"         value="${_esc(it.qty)}"></td>
+      <td><input class="item-inp item-sm"   data-f="unit"        value="${_esc(it.unit)}"></td>
+      <td><input class="item-inp item-num"  data-f="unitPrice"   value="${_esc(it.unitPrice)}"></td>
+      <td><input class="item-inp item-num"  data-f="amount"      value="${_esc(it.amount)}"></td>
+      <td><button class="item-del-btn" type="button" data-i="${i}" title="删除此行">×</button></td>
+    </tr>`).join('');
+
+  wrap.innerHTML = `
+    <div class="items-scroll">
+      <table class="items-table items-editable">
+        <thead><tr>
+          <th style="width:36px">序</th>
+          <th style="width:96px">型号</th>
+          <th>品名</th>
+          <th style="width:60px">数量</th>
+          <th style="width:48px">单位</th>
+          <th style="width:88px">单价</th>
+          <th style="width:88px">金额</th>
+          <th style="width:28px"></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <button type="button" class="btn btn-ghost btn-sm items-add-row" id="btn-add-item-row">＋ 新增行</button>`;
+
+  // Delegate: sync input changes back to _editItems
+  wrap.querySelector('tbody').addEventListener('input', e => {
+    if (!e.target.matches('.item-inp')) return;
+    const i = parseInt(e.target.closest('tr').dataset.i, 10);
+    const f = e.target.dataset.f;
+    if (_editItems[i] && f) _editItems[i][f] = e.target.value;
+  });
+
+  // Delegate: delete row
+  wrap.querySelector('tbody').addEventListener('click', e => {
+    const btn = e.target.closest('.item-del-btn');
+    if (!btn) return;
+    _editItems.splice(parseInt(btn.dataset.i, 10), 1);
+    _syncItemsSection();
+    _reRenderItemsTable();
+  });
+
+  // Add row
+  document.getElementById('btn-add-item-row')?.addEventListener('click', () => {
+    _editItems.push({ itemNo: '', model: '', description: '', qty: '', unit: '', unitPrice: '', amount: '' });
+    _syncItemsSection();
+    _reRenderItemsTable();
+  });
+}
+
+/* ================================================================
+   Template Autocomplete
+================================================================ */
+
 async function _applyTemplate(supplierName) {
   if (!supplierName) return;
   const tpl = await templateService.get(supplierName);
   if (!tpl) return;
-
-  const deliveryEl = document.getElementById('field-delivery');
-  if (deliveryEl && !deliveryEl.value.trim() && tpl.delivery_time) {
-    deliveryEl.value = tpl.delivery_time;
-    _setConfBadge('conf-delivery', 0.70, '模板记忆');
-  }
+  const el = document.getElementById('field-delivery');
+  if (el && !el.value.trim() && tpl.delivery_time) el.value = tpl.delivery_time;
 }
 
-/**
- * After a successful import, persist any user-corrected low-confidence fields
- * as a template for the supplier, so the next PDF auto-fills them.
- */
 async function _learnTemplate(saved) {
   if (!saved.supplier) return;
-  const orig = _lastExtracted;
+  const orig    = _lastExtracted ?? {};
   const learned = {};
-
-  // Learn delivery_time when extractor missed it but user filled it
-  if (saved.delivery_time && !orig?.delivery_time) {
-    learned.delivery_time = saved.delivery_time;
+  if (saved.delivery_method && !orig.deliveryMethod) {
+    learned.delivery_time = saved.delivery_method;
   }
-
   if (Object.keys(learned).length > 0) {
     await templateService.save(saved.supplier, learned);
   }
 }
 
-function _readForm() {
-  const data = {};
-  for (const { id, key } of FIELD_MAP) {
-    const el = document.getElementById(id);
-    if (!el) continue;
-    data[key] = el.value.trim();
-  }
-  data.total_amount = parseFloat(
-    String(data.total_amount).replace(/[,，\s¥￥$€£]/g, '')
-  ) || 0;
-  return data;
-}
-
 /* ================================================================
-   Validation
+   Read Form
 ================================================================ */
 
-function _validate(_formData) {
-  return null;  // all fields optional
+function _readForm() {
+  const get = id => (document.getElementById(id)?.value.trim() ?? '');
+  return {
+    supplier:        get('field-supplier'),
+    quote_id:        get('field-quote-id'),
+    quote_date:      get('field-quote-date'),
+    delivery_method: get('field-delivery'),
+    payment_terms:   get('field-payment'),
+    validity:        get('field-validity'),
+    notes:           get('field-notes'),
+    total_amount: parseFloat(
+      get('field-amount').replace(/[,，\s¥￥$€£]/g, '')
+    ) || 0,
+  };
 }
 
 /* ================================================================
-   Confirm Import
+   Confirm (入库)
 ================================================================ */
 
 async function _handleConfirm() {
@@ -400,41 +389,37 @@ async function _handleConfirm() {
   if (!session) { showToast('请先登录', 'error'); return; }
 
   const entry = _queue[_activeIdx];
-  if (!entry) { showToast('请先选择一个文件', 'error'); return; }
-
+  if (!entry)                     { showToast('请先选择一个文件', 'error'); return; }
   if (entry.status === 'parsing') { showToast('文件正在解析中，请稍候', 'info'); return; }
   if (entry.status === 'done')    { showToast('该文件已导入，无需重复提交', 'info'); return; }
+  if (!entry.fileId)              { showToast('文件尚未上传，请稍候', 'error'); return; }
 
   const formData = _readForm();
-  const errMsg   = _validate(formData);
-  if (errMsg) { showToast(errMsg, 'error'); return; }
-
-  const tags = getSelectedTags();
-  const base = entry.quote ?? {};
+  const tags     = getSelectedTags();
 
   const quoteData = {
-    ...base,
     ...formData,
+    file_id:   entry.fileId,
+    file_name: entry.file.name,
+    items:     _editItems,
+    currency:  (entry.normalized ?? {}).currency || 'CNY',
     line_id:   tags.line?.id   ?? '',
     line_name: tags.line?.name ?? '',
     equipment: tags.equipment  ?? [],
-    file_name: entry.file.name,
-    items:     base.items ?? [],
-    currency:  base.currency ?? 'CNY',
+    status:    'confirmed',
   };
 
   const btnConfirm = document.getElementById('btn-confirm');
-  if (btnConfirm) { btnConfirm.disabled = true; btnConfirm.textContent = '导入中...'; }
+  if (btnConfirm) { btnConfirm.disabled = true; btnConfirm.textContent = '入库中...'; }
 
   try {
-    quoteData.file_id = await fileService.upload(entry.file);
     await quoteService.create(quoteData);
 
     entry.status = 'done';
     _patchBadge(_activeIdx);
-    _setStatusLabel('已导入', 'done');
+    _setStatusLabel('已入库', 'done');
 
-    showToast(`报价「${quoteData.quote_id || quoteData.supplier}」导入成功`, 'success');
+    showToast(`报价「${quoteData.quote_id || quoteData.supplier}」入库成功`, 'success');
 
     await _learnTemplate(quoteData);
     resetTags();
@@ -442,14 +427,14 @@ async function _handleConfirm() {
     await refreshOverview();
     await refreshAnalysisSelects();
 
-    const nextIdx = _queue.findIndex((e, i) => i > _activeIdx && e.status === 'pending');
-    if (nextIdx !== -1) await _selectFile(nextIdx);
+    const nextPending = _queue.findIndex((e, i) => i > _activeIdx && e.status === 'pending');
+    if (nextPending !== -1) await _selectFile(nextPending);
 
   } catch (err) {
-    console.error('[Upload] import failed:', err);
+    console.error('[Upload] confirm failed:', err);
     showToast(err.message || '写入失败，请检查存储或重试', 'error');
   } finally {
-    if (btnConfirm) { btnConfirm.disabled = false; btnConfirm.textContent = '确认导入'; }
+    if (btnConfirm) { btnConfirm.disabled = false; btnConfirm.textContent = '确认入库'; }
   }
 }
 
@@ -512,7 +497,6 @@ export function initUpload() {
     addFiles(e.dataTransfer.files);
   });
 
-  // Load template defaults when user selects / types a known supplier
   document.getElementById('field-supplier')
     ?.addEventListener('change', e => _applyTemplate(e.target.value.trim()));
 

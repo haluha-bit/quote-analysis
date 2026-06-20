@@ -97,6 +97,11 @@ function initDB() {
     );
   `);
 
+  // Migration: add columns introduced after initial deploy (safe to run on existing DBs)
+  ['payment_terms', 'delivery_method', 'validity', 'status'].forEach(col => {
+    try { db.exec(`ALTER TABLE quotes ADD COLUMN ${col} TEXT DEFAULT ''`); } catch (_) {}
+  });
+
   // Seed lines if table is empty
   const count = db.prepare('SELECT COUNT(*) AS n FROM lines').get().n;
   if (count === 0) {

@@ -681,4 +681,70 @@
 .login-logo  { margin-bottom: var(--s-4); display: flex; justify-content: center; }
 .login-title { font-size: var(--fs-title); font-weight: var(--fw-bold); margin-bottom: var(--s-1); }
 .login-subtitle { font-size: var(--fs-small); color: var(--text-tertiary); margin-bottom: var(--s-5); }
+
+/* ================================================================
+   Editable Items Table (Review Page)
+================================================================ */
+.items-scroll {
+  overflow-x: auto;
+  margin-bottom: var(--s-2);
+  border-radius: var(--r-md);
+  border: 1px solid var(--bg-separator);
+}
+
+.items-editable { border: none; border-radius: 0; }
+
+.items-editable thead th {
+  background: var(--gray-6);
+  font-size: 11px;
+  font-weight: var(--fw-semibold);
+  color: var(--text-tertiary);
+  padding: 6px 6px;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.items-editable tbody tr:hover { background: var(--gray-6); }
+
+.items-editable td { padding: 2px 3px; vertical-align: middle; }
+
+.item-inp {
+  border: 1px solid transparent;
+  background: transparent;
+  width: 100%;
+  min-width: 0;
+  padding: 4px 5px;
+  font-size: 13px;
+  color: var(--text-primary);
+  border-radius: var(--r-sm);
+  transition: border-color var(--t-fast), background var(--t-fast);
+  box-sizing: border-box;
+}
+.item-inp:hover  { border-color: var(--bg-separator); }
+.item-inp:focus  { outline: none; border-color: var(--blue); background: var(--bg-elevated); }
+
+.item-inp.item-sm   { max-width: 44px; text-align: center; }
+.item-inp.item-num  { max-width: 88px; text-align: right; }
+.item-inp.item-wide { min-width: 140px; }
+
+.item-del-btn {
+  background: none;
+  border: none;
+  color: var(--text-quaternary);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: var(--r-sm);
+  transition: color var(--t-fast), background var(--t-fast);
+}
+.item-del-btn:hover { color: var(--red, #ff3b30); background: var(--gray-5); }
+
+.items-add-row {
+  margin-top: var(--s-2);
+  font-size: var(--fs-small);
+  color: var(--blue);
+  padding: 4px var(--s-2);
+}
 .login-form  { text-align: left; display: flex; flex-direction: column; gap: var(--s-3); }

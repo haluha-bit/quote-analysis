@@ -192,9 +192,19 @@
                         </div>
                         <div class="field-group">
                           <label class="field-label" for="field-delivery">
-                            交期 <span class="conf-badge conf-none" id="conf-delivery">人工</span>
+                            交货方式 <span class="conf-badge conf-none" id="conf-delivery">AI</span>
                           </label>
-                          <input type="text" id="field-delivery" class="field-input" placeholder="人工填写 / 模板记忆">
+                          <input type="text" id="field-delivery" class="field-input" placeholder="FOB / CIF / 快递">
+                        </div>
+                      </div>
+                      <div class="field-row">
+                        <div class="field-group">
+                          <label class="field-label" for="field-payment">付款方式</label>
+                          <input type="text" id="field-payment" class="field-input" placeholder="T/T 款到发货 / 30天账期">
+                        </div>
+                        <div class="field-group">
+                          <label class="field-label" for="field-validity">有效期</label>
+                          <input type="text" id="field-validity" class="field-input" placeholder="30天 / 2026-07-31">
                         </div>
                       </div>
 
@@ -237,7 +247,7 @@
 
                   <div class="action-row">
                     <button type="button" class="btn btn-ghost" id="btn-discard">放弃</button>
-                    <button type="button" class="btn btn-primary" id="btn-confirm">确认导入</button>
+                    <button type="button" class="btn btn-primary" id="btn-confirm">确认入库</button>
                   </div>
                 </div><!-- /.extract-side-col -->
 
