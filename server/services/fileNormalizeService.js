@@ -27,8 +27,8 @@ function emptyNormalized() {
     paymentTerms:   '',
     deliveryMethod: '',
     validity:       '',
-    totalAmount:    '',   // 当前阶段强制为空
-    items:          [],   // 当前阶段强制为空
+    totalAmount:    '',
+    items:          [],
   };
 }
 
@@ -56,10 +56,7 @@ async function normalizeUpload(filePath, filename) {
 
     const aiFields = await normalize(rawText);   // quoteNormalizeService 内部已处理失败
 
-    return {
-      ...aiFields,
-      totalAmount: '',   // 当前阶段强制为空（items 已由 quoteNormalizeService 填充）
-    };
+    return { ...aiFields };
   } catch (err) {
     console.error('[fileNormalize] 意外错误:', filename, err.message);
     return emptyNormalized();

@@ -254,7 +254,7 @@ function _fillForm(normalized) {
   _set('field-delivery',   normalized.deliveryMethod);
   _set('field-payment',    normalized.paymentTerms);
   _set('field-validity',   normalized.validity);
-  _set('field-amount',     '');
+  _set('field-amount',     normalized.totalAmount || '');
   _set('field-notes',      '');
 
   _syncItemsSection();

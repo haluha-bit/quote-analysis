@@ -16,3 +16,6 @@ server/uploads/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local secrets — never commit
+.env

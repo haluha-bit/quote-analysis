@@ -4,8 +4,8 @@
   "description": "报价分析系统 — PWA + Express + SQLite",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "node --watch index.js"
+    "start": "node --env-file=.env index.js",
+    "dev": "node --env-file=.env --watch index.js"
   },
   "engines": {
     "node": ">=22"
