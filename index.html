@@ -73,6 +73,11 @@
           <h1 class="header-title" id="header-title">上传报价</h1>
         </div>
         <div class="header-right">
+          <!-- AI 状态灯 -->
+          <div id="ai-status-indicator" class="ai-status-chip" data-status="unknown">
+            <span class="ai-dot" style="background:#c7c7cc"></span>
+            <span class="ai-status-lbl">检测中…</span>
+          </div>
           <div class="user-chip">
             <div class="user-avatar" id="user-avatar">?</div>
             <span class="user-name" id="user-name">—</span>
@@ -98,6 +103,11 @@
         <div class="view-header">
           <h2 class="view-title">上传报价文件</h2>
           <p class="view-subtitle">支持 PDF、Excel、Word 格式，可批量上传</p>
+        </div>
+
+        <!-- AI 异常警告（绿灯时隐藏） -->
+        <div id="ai-status-warning" class="ai-status-warning" style="display:none">
+          ⚠️ AI 当前异常，可能只能上传文件，无法自动提取报价信息。
         </div>
 
         <div class="upload-layout">

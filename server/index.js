@@ -17,6 +17,7 @@ const logsRoutes      = require('./routes/logs');
 const linesRoutes      = require('./routes/lines');
 const suppliersRoutes   = require('./routes/suppliers');
 const templatesRoutes   = require('./routes/templates');
+const aiRoutes          = require('./routes/ai');
 
 const app  = express();
 const PORT = process.env.PORT || 3001;
@@ -40,6 +41,7 @@ app.use('/api/logs',   logsRoutes);
 app.use('/api/lines',      linesRoutes);
 app.use('/api/suppliers',  suppliersRoutes);
 app.use('/api/templates',  templatesRoutes);
+app.use('/api/ai',         aiRoutes);
 
 /* ---- Serve PWA static files from project root ---- */
 const PWA_ROOT = path.join(__dirname, '..');

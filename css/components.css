@@ -748,3 +748,53 @@
   padding: 4px var(--s-2);
 }
 .login-form  { text-align: left; display: flex; flex-direction: column; gap: var(--s-3); }
+
+/* ---- AI Status Indicator ---- */
+.ai-status-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px 4px 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--bg-separator);
+  border-radius: 20px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  max-width: 220px;
+  overflow: hidden;
+}
+
+.ai-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background var(--t-fast);
+}
+
+[data-status="green"] .ai-dot  { box-shadow: 0 0 0 2px rgba(52,199,89,0.25); }
+[data-status="yellow"] .ai-dot { box-shadow: 0 0 0 2px rgba(255,149,0,0.25); }
+[data-status="red"] .ai-dot    { box-shadow: 0 0 0 2px rgba(255,59,48,0.25); }
+
+.ai-status-lbl   { font-weight: 500; white-space: nowrap; }
+.ai-status-model { color: var(--text-tertiary);   font-size: 11px; white-space: nowrap; }
+.ai-status-time  { color: var(--text-quaternary); font-size: 11px; white-space: nowrap; }
+.ai-status-err   {
+  color: var(--red, #ff3b30);
+  font-size: 11px;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Upload view warning banner */
+.ai-status-warning {
+  background: rgba(255,149,0,0.08);
+  border: 1px solid rgba(255,149,0,0.35);
+  border-radius: var(--r-md);
+  padding: var(--s-2) var(--s-3);
+  font-size: var(--fs-small);
+  color: var(--text-secondary);
+  margin-bottom: var(--s-3);
+}

@@ -9,6 +9,7 @@ import { initOverview, refreshOverview } from './modules/overview.js';
 import { initAnalysis, refreshAnalysisSelects } from './modules/analysis.js';
 import { logger }                        from './modules/logger.js';
 import { initRouter, onNavigate }        from './ui/router.js';
+import { initAIStatus }                  from './modules/aiStatus.js';
 
 /* ---- pdf.js worker ---- */
 if (typeof pdfjsLib !== 'undefined') {
@@ -24,6 +25,7 @@ async function boot() {
   await initAuth();
 
   initRouter();    // wires bottom nav, defaults to upload view
+  initAIStatus();  // AI status indicator (non-blocking)
   initUpload();    // drag/drop + parse + confirm pipeline
 
   await initClassifier();   // fetches lines from server, renders chips

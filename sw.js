@@ -1,4 +1,4 @@
-const CACHE = 'qas-v2.4.0';
+const CACHE = 'qas-v2.5.0';
 
 const STATIC = [
   './',
@@ -19,6 +19,7 @@ const STATIC = [
   './js/modules/overview.js',
   './js/modules/analysis.js',
   './js/modules/logger.js',
+  './js/modules/aiStatus.js',
   './js/services/templateService.js',
   './js/data/store.js',
   './js/data/lines.js',
