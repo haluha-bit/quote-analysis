@@ -58,8 +58,7 @@ async function normalizeUpload(filePath, filename) {
 
     return {
       ...aiFields,
-      totalAmount: '',   // 当前阶段强制为空
-      items:       [],   // 当前阶段强制为空
+      totalAmount: '',   // 当前阶段强制为空（items 已由 quoteNormalizeService 填充）
     };
   } catch (err) {
     console.error('[fileNormalize] 意外错误:', filename, err.message);
