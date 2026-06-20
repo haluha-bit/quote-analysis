@@ -313,54 +313,80 @@ function _emptyResult() {
 
 /* ── main export ──────────────────────────────────────────────── */
 
+/* ── shared post-processing ───────────────────────────────────── */
+
 /**
- * 将 PDF 原始文本交给 AI 归一化。总是 resolve，任何失败都返回空结构。
- *
- * @param {string} rawText  pdf-parse 提取的原始文本
- * @returns {Promise<{vendorName,quoteNo,quoteDate,currency,paymentTerms,deliveryMethod,validity,items}>}
+ * AI 回复文本 → 归一化的 NormalizedQuote 对象。
+ * normalize() 和 normalizeFromFileId() 共用此逻辑。
+ */
+function _processReply(reply, logTag) {
+  const parsed = _parseJson(reply);
+  if (!parsed) throw new Error('AI 返回内容无法解析为 JSON: ' + reply.slice(0, 120));
+
+  const items       = _items(parsed.items);
+  const aiTotal     = _cleanNumber(_str(parsed.totalAmount));
+  const totalAmount = _calcTotalAmount(aiTotal, items);
+
+  const result = {
+    vendorName:     _cleanVendorName(_str(parsed.vendorName)),
+    quoteNo:        _str(parsed.quoteNo),
+    quoteDate:      _normalizeDate(_str(parsed.quoteDate)),
+    currency:       _str(parsed.currency),
+    paymentTerms:   _str(parsed.paymentTerms),
+    deliveryMethod: _str(parsed.deliveryMethod),
+    validity:       _str(parsed.validity),
+    totalAmount,
+    items,
+  };
+
+  const preview = items.slice(0, 3)
+    .map(it => `[${it.itemNo}]${it.description || it.model} qty=${it.qty}${it.unit} price=${it.unitPrice}`)
+    .join(' | ');
+  console.log(
+    `[quoteNormalize/${logTag}] vendor="${result.vendorName}" no="${result.quoteNo}"` +
+    ` date="${result.quoteDate}" amount="${result.totalAmount}" items=${items.length}` +
+    (items.length ? `\n  前3行: ${preview}` : '')
+  );
+
+  return result;
+}
+
+/* ── main export ──────────────────────────────────────────────── */
+
+/**
+ * 将 PDF 原始文本交给 AI 归一化（原有方案，pdf-parse 提取文本后调用）。
  */
 async function normalize(rawText) {
   if (!rawText || !rawText.trim()) return _emptyResult();
 
   try {
-    const text = rawText.length > 8000
-      ? rawText.slice(0, 8000) + '\n[文本已截断]'
-      : rawText;
-
-    const reply  = await chat(SYSTEM_PROMPT, `请从以下报价单原始文本中提取字段和明细行：\n\n${text}`);
-    const parsed = _parseJson(reply);
-    if (!parsed) throw new Error('AI 返回内容无法解析为 JSON: ' + reply.slice(0, 120));
-
-    const items      = _items(parsed.items);
-    const aiTotal    = _cleanNumber(_str(parsed.totalAmount));
-    const totalAmount = _calcTotalAmount(aiTotal, items);
-
-    const result = {
-      vendorName:     _cleanVendorName(_str(parsed.vendorName)),
-      quoteNo:        _str(parsed.quoteNo),
-      quoteDate:      _normalizeDate(_str(parsed.quoteDate)),
-      currency:       _str(parsed.currency),
-      paymentTerms:   _str(parsed.paymentTerms),
-      deliveryMethod: _str(parsed.deliveryMethod),
-      validity:       _str(parsed.validity),
-      totalAmount,
-      items,
-    };
-
-    const preview = items.slice(0, 3)
-      .map(it => `[${it.itemNo}]${it.description||it.model} qty=${it.qty}${it.unit} price=${it.unitPrice}`)
-      .join(' | ');
-    console.log(
-      `[quoteNormalize] vendor="${result.vendorName}" no="${result.quoteNo}"` +
-      ` date="${result.quoteDate}" amount="${result.totalAmount}" items=${items.length}` +
-      (items.length ? `\n  前3行: ${preview}` : '')
-    );
-
-    return result;
+    const text  = rawText.length > 8000 ? rawText.slice(0, 8000) + '\n[文本已截断]' : rawText;
+    const reply = await chat(SYSTEM_PROMPT, `请从以下报价单原始文本中提取字段和明细行：\n\n${text}`);
+    return _processReply(reply, 'text');
   } catch (err) {
-    console.error('[quoteNormalize] 失败:', err.message);
+    console.error('[quoteNormalize/text] 失败:', err.message);
     return _emptyResult();
   }
 }
 
-module.exports = { normalize, EMPTY_FIELDS };
+/**
+ * 用 DashScope file_id 让 qwen-long 原生读取 PDF 并归一化。
+ * 比文本提取方案更能保留表格结构。
+ *
+ * @param {string} fileId  dashscopeFileService.uploadFile() 返回的 file_id
+ */
+async function normalizeFromFileId(fileId) {
+  if (!fileId) return _emptyResult();
+
+  try {
+    const userMsg = `fileid://${fileId}\n\n请从上述报价单 PDF 中提取字段和明细行，严格按照系统提示中的 JSON 格式输出。`;
+    // qwen-long 支持原生 PDF 解析；60s 超时（文件解析比纯文本慢）
+    const reply = await chat(SYSTEM_PROMPT, userMsg, 'qwen-long', 60_000);
+    return _processReply(reply, 'file');
+  } catch (err) {
+    console.error('[quoteNormalize/file] 失败:', err.message);
+    return _emptyResult();
+  }
+}
+
+module.exports = { normalize, normalizeFromFileId, EMPTY_FIELDS };

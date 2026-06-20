@@ -30,18 +30,24 @@ const TIMEOUT_MS       = 30_000;
  * @returns {Promise<string>}    AI 返回的文本内容
  * @throws {Error}  Key 未配置 / 超时 / 网络错误 / 非 200 响应
  */
-async function chat(systemPrompt, userMessage) {
+/**
+ * @param {string}      systemPrompt
+ * @param {string}      userMessage
+ * @param {string|null} [modelOverride]  传入则优先使用（如 'qwen-long'），否则读 AI_MODEL env
+ * @param {number}      [timeoutMs]      默认 30s，文件解析场景可传 60000
+ */
+async function chat(systemPrompt, userMessage, modelOverride = null, timeoutMs = TIMEOUT_MS) {
   const apiKey = process.env.DASHSCOPE_API_KEY;
   if (!apiKey) throw new Error('DASHSCOPE_API_KEY 未配置');
 
   const baseUrl = (process.env.DASHSCOPE_BASE_URL || DEFAULT_BASE_URL).replace(/\/$/, '');
-  const model   = process.env.AI_MODEL || DEFAULT_MODEL;
+  const model   = modelOverride || process.env.AI_MODEL || DEFAULT_MODEL;
   const url     = `${baseUrl}/chat/completions`;
 
   console.log(`[aiService] → ${model} @ ${url}`);
 
   const controller = new AbortController();
-  const timer      = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer      = setTimeout(() => controller.abort(), timeoutMs);
 
   let response;
   try {
@@ -64,7 +70,7 @@ async function chat(systemPrompt, userMessage) {
     });
   } catch (err) {
     clearTimeout(timer);
-    if (err.name === 'AbortError') throw new Error('百炼 API 请求超时（30s）');
+    if (err.name === 'AbortError') throw new Error(`百炼 API 请求超时（${timeoutMs / 1000}s）`);
     throw err;
   }
   clearTimeout(timer);
